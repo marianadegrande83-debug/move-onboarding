@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { STAGES, type Company, type OnboardingStage } from '../../lib/types'
@@ -74,10 +75,15 @@ export default function Dashboard() {
               <span className="text-sm text-cinza">clientes por etapa</span>
             </div>
             {companies.length === 0 ? (
-              <EmptyState
-                title="Nenhum cliente cadastrado ainda"
-                text="O cadastro de clientes chega no módulo 3. Assim que o primeiro cliente entrar, ele aparece aqui na etapa certa."
-              />
+              <div className="flex flex-col items-center gap-4">
+                <EmptyState
+                  title="Nenhum cliente cadastrado ainda"
+                  text="Assim que o primeiro cliente for cadastrado, ele aparece aqui na etapa certa."
+                />
+                {(profile?.role === 'admin' || profile?.role === 'coordenacao') && (
+                  <Link to="/admin/clientes/novo" className="inline-flex h-12 items-center rounded-full bg-roxo px-6 font-bold text-white hover:bg-[#4A0C75]">Cadastrar primeiro cliente</Link>
+                )}
+              </div>
             ) : (
               <div className="overflow-x-auto pb-1.5">
                 <div className="grid min-w-[960px] grid-cols-7 gap-2.5">
@@ -92,7 +98,7 @@ export default function Dashboard() {
                         <span className="font-extrabold leading-tight">{s.label}</span>
                         <span className="text-xs text-cinza">{s.owner}</span>
                         {list.slice(0, 4).map((c) => (
-                          <div key={c.id} className="rounded-xl border border-linha bg-white px-2.5 py-2 text-sm font-semibold">{c.name}</div>
+                          <Link key={c.id} to={`/admin/clientes/${c.id}`} className="rounded-xl border border-linha bg-white px-2.5 py-2 text-sm font-semibold hover:border-roxo">{c.name}</Link>
                         ))}
                         {list.length > 4 && <span className="text-xs font-bold text-cinza">+{list.length - 4}</span>}
                       </div>

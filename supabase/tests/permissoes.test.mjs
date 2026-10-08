@@ -16,6 +16,7 @@ await db.exec(`
 await db.exec(fs.readFileSync(new URL('../migrations/0001_auth_permissoes.sql', import.meta.url), 'utf8'))
 await db.exec(fs.readFileSync(new URL('../migrations/0003_permissoes_tabelas.sql', import.meta.url), 'utf8'))
 await db.exec(`grant execute on all functions in schema auth to authenticated;`)
+await db.exec(fs.readFileSync(new URL('../migrations/0004_cadastro_clientes.sql', import.meta.url), 'utf8'))
 ok('migração executou sem erros')
 
 const newUser = async (email) => (await db.query(`insert into auth.users(email) values($1) returning id`, [email])).rows[0].id
@@ -62,3 +63,42 @@ const audit = (await as(mariana, `select count(*)::int n from public.audit_log`)
 audit > 5 ? ok(`auditoria registrou ${audit} eventos`) : fail('auditoria vazia')
 
 try { await as(mariana, `delete from public.audit_log`); const n = (await db.query(`select count(*)::int n from public.audit_log`)).rows[0].n; n === audit ? ok('auditoria não pode ser apagada') : fail('auditoria apagada') } catch { ok('auditoria não pode ser apagada') }
+
+// ---------------- Módulo 3: cadastro de clientes ----------------
+const payload = {
+  name: 'Clínica Teste', contact_name: 'Ana Souza', contact_email: '  Ana@Clinica.com ',
+  whatsapp: '(71) 99999-0000', plan_id: 'power_move', services: ['move_content'],
+  has_traffic: true, monthly_fee: '3000', setup_fee: '500', notes: 'fechado em reunião',
+  start_date: '2026-11-01', social_media_id: sm,
+}
+const cid = (await as(mariana, `select public.create_client($1::jsonb) as id`, [JSON.stringify(payload)])).rows[0].id
+cid ? ok('admin cadastra cliente completo numa operação só') : fail('create_client')
+
+const svc = (await db.query(`select product_id from public.company_services where company_id=$1 order by 1`, [cid])).rows.map(r => r.product_id)
+JSON.stringify(svc) === '["move_content","power_move"]' ? ok('plano entra junto com os serviços') : fail('serviços: ' + svc)
+
+const inv = (await db.query(`select email from public.client_invites where company_id=$1`, [cid])).rows
+inv.length === 1 && inv[0].email === 'ana@clinica.com' ? ok('convite criado com e-mail normalizado') : fail('convite')
+
+const wa = (await db.query(`select whatsapp from public.companies where id=$1`, [cid])).rows[0].whatsapp
+wa === '71999990000' ? ok('WhatsApp salvo só com números') : fail('whatsapp ' + wa)
+
+try { await as(sm, `select public.create_client($1::jsonb)`, [JSON.stringify({ ...payload, contact_email: 'x@y.com' })]); fail('social media cadastrou cliente') } catch { ok('social media não cadastra clientes') }
+try { await as(clienteA, `select public.create_client($1::jsonb)`, [JSON.stringify({ ...payload, contact_email: 'z@y.com' })]); fail('cliente cadastrou cliente') } catch { ok('cliente não cadastra clientes') }
+try { await as(mariana, `select public.create_client($1::jsonb)`, [JSON.stringify({ ...payload, contact_email: 'invalido' })]); fail('aceitou e-mail inválido') } catch { ok('e-mail inválido é recusado') }
+
+const smCommercial = (await as(sm, `select count(*)::int n from public.company_commercial`)).rows[0].n
+const smSeesCompany = (await as(sm, `select count(*)::int n from public.companies where id=$1`, [cid])).rows[0].n
+smSeesCompany === 1 && smCommercial === 0 ? ok('social media vê o cliente, mas não os valores') : fail(`sm empresa=${smSeesCompany} valores=${smCommercial}`)
+
+const ana = await newUser('ana@clinica.com')
+const anaCompanies = (await as(ana, `select name from public.companies`)).rows.map(r => r.name)
+JSON.stringify(anaCompanies) === '["Clínica Teste"]' ? ok('cliente convidado entra vinculado só à própria empresa') : fail('ana viu ' + anaCompanies)
+const anaSvc = (await as(ana, `select count(*)::int n from public.company_services`)).rows[0].n
+const anaCom = (await as(ana, `select count(*)::int n from public.company_commercial`)).rows[0].n
+anaSvc === 2 && anaCom === 0 ? ok('cliente vê os serviços contratados, mas não os valores') : fail(`ana servicos=${anaSvc} valores=${anaCom}`)
+const anaOther = (await as(ana, `select count(*)::int n from public.company_services where company_id<>$1`, [cid])).rows[0].n
+anaOther === 0 ? ok('cliente não vê serviços de outras empresas') : fail('vazamento de serviços')
+
+const brunaCom = (await as(bruna, `select monthly_fee::text from public.company_commercial where company_id=$1`, [cid])).rows
+brunaCom.length === 1 && brunaCom[0].monthly_fee === '3000.00' ? ok('coordenação vê os dados comerciais') : fail('bruna comercial')

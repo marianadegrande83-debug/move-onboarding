@@ -3,11 +3,11 @@ import { useAuth } from '../lib/auth'
 import { ROLE_LABEL } from '../lib/types'
 import { Logo } from '../components/ui'
 
-interface NavItem { to: string; label: string; soon?: boolean; adminOnly?: boolean }
+interface NavItem { to: string; label: string; soon?: boolean; adminOnly?: boolean; prefix?: boolean }
 
 const NAV: NavItem[] = [
   { to: '/admin', label: 'Dashboard' },
-  { to: '/admin/clientes', label: 'Clientes', soon: true },
+  { to: '/admin/clientes', label: 'Clientes', prefix: true },
   { to: '/admin/briefings', label: 'Briefings', soon: true },
   { to: '/admin/contratos', label: 'Contratos', soon: true },
   { to: '/admin/materiais', label: 'Materiais e acessos', soon: true },
@@ -27,7 +27,7 @@ export default function AdminLayout() {
         <nav aria-label="Menu principal" className="flex flex-col gap-1">
           {items.map((item) =>
             item.soon ? (
-              <span key={item.to} className="flex min-h-11 items-center justify-between rounded-xl px-3.5 text-[15px] font-semibold text-[#8F889A]">
+              <span key={item.to} className="hidden min-h-11 items-center justify-between gap-2 rounded-xl px-3.5 text-[15px] font-semibold text-[#8F889A] md:flex">
                 {item.label}
                 <span className="text-[11px] font-bold uppercase tracking-wider">em breve</span>
               </span>
@@ -35,7 +35,7 @@ export default function AdminLayout() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                end
+                end={!item.prefix}
                 className={({ isActive }) =>
                   `flex min-h-11 items-center rounded-xl px-3.5 text-[15px] font-semibold ${isActive ? 'bg-roxo text-white' : 'text-[#E9E4F0] hover:bg-grafite'}`
                 }

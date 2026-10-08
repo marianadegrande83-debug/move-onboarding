@@ -22,11 +22,44 @@ export interface Company {
   name: string
   contact_name: string
   contact_email: string
+  whatsapp?: string | null
   stage: OnboardingStage
   has_traffic: boolean
   social_media_id: string | null
   traffic_id: string | null
+  start_date?: string | null
+  plan_id?: string | null
+  created_at?: string
   updated_at: string
+}
+
+export type ProductCategory = 'recorrente' | 'pontual' | 'autoridade'
+
+export interface Product {
+  id: string
+  name: string
+  category: ProductCategory
+  base_price: number | null
+  is_plan: boolean
+  includes_traffic: boolean
+  sort: number
+  active: boolean
+}
+
+export const CATEGORY_LABEL: Record<ProductCategory, string> = {
+  recorrente: 'Receita recorrente',
+  pontual: 'Projetos e serviços pontuais',
+  autoridade: 'Experiências e produção de autoridade',
+}
+
+export const STAGE_LABEL: Record<OnboardingStage, string> = {
+  briefing: 'Briefing',
+  contrato: 'Contrato',
+  materiais: 'Materiais e acessos',
+  estrategia: 'Estratégia',
+  aprovacao: 'Aprovação',
+  transicao: 'Transição Trello',
+  ativo: 'Cliente ativo',
 }
 
 export const ROLE_LABEL: Record<AppRole, string> = {
