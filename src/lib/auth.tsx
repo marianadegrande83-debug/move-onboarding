@@ -6,6 +6,7 @@ import type { Profile } from './types'
 interface AuthState {
   session: Session | null
   profile: Profile | null
+  profileError: string | null
   loading: boolean
   signOut: () => Promise<void>
 }
@@ -13,6 +14,7 @@ interface AuthState {
 const AuthContext = createContext<AuthState>({
   session: null,
   profile: null,
+  profileError: null,
   loading: true,
   signOut: async () => {},
 })
@@ -21,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileError, setProfileError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!supabase) {
@@ -50,8 +53,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('id, email, full_name, role, active')
       .eq('id', session.user.id)
       .single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (cancelled) return
+        if (error) console.error('[auth] perfil não carregado', error)
+        setProfileError(
+          error
+            ? `${error.code ?? ''} ${error.message}`.trim()
+            : data && !data.active
+              ? 'perfil desativado'
+              : null,
+        )
         setProfile(data && data.active ? (data as Profile) : null)
         setLoading(false)
       })
@@ -65,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ session, profile, profileError, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   )
