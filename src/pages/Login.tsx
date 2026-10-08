@@ -27,11 +27,20 @@ export default function Login() {
       email: clean,
       options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     })
-    // Por segurança, a resposta é a mesma para e-mail cadastrado ou não (evita descobrir quem é cliente).
-    if (error && error.status === 429) {
-      setStatus('error')
-      setMessage('Muitas tentativas seguidas. Aguarde um minuto e tente de novo.')
-      return
+    if (error) {
+      console.error('[login] falha ao pedir magic link', error)
+      // E-mail não autorizado: o banco recusa o cadastro (erro 500 "Database error saving new user").
+      // Por segurança, respondemos igual a um e-mail cadastrado, para ninguém descobrir quem é cliente.
+      const blocked = error.status === 500 && /database error/i.test(error.message)
+      if (!blocked) {
+        setStatus('error')
+        setMessage(
+          error.status === 429
+            ? 'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.'
+            : `Não foi possível enviar o link agora. Detalhe técnico: ${error.message || 'sem resposta do servidor'}`,
+        )
+        return
+      }
     }
     setStatus('sent')
   }
