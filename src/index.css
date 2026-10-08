@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+/* Identidade MOVE — paleta oficial do manual */
+@theme {
+  --color-roxo: #5B108F;        /* Roxo Profundo */
+  --color-roxo-claro: #D084FF;  /* Roxo Claro */
+  --color-roxo-suave: #F3E6FF;  /* fundo de destaque derivado do Roxo Claro */
+  --color-preto: #030303;
+  --color-offwhite: #F1F1F1;
+  --color-grafite: #1A161E;
+  --color-cinza: #5E5A66;
+  --color-linha: #E2E2E2;
+  --color-alerta: #B42318;
+  --color-alerta-suave: #FDECEA;
+  --color-atencao: #8A5200;
+  --color-atencao-suave: #FFF3DC;
+  --color-ok: #1F6B42;
+  --color-ok-suave: #E5F4EC;
+
+  /* Nexa entra aqui quando os arquivos licenciados forem adicionados em /public/fonts */
+  --font-sans: "Nexa", "Urbanist", system-ui, sans-serif;
+}
+
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-offwhite);
+  color: var(--color-preto);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-roxo-claro);
+  outline-offset: 2px;
+}
