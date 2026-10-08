@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { STAGES, type Company, type OnboardingStage } from '../../lib/types'
 import { Card, EmptyState, Spinner } from '../../components/ui'
+import { Notifications } from '../../components/Notifications'
 
 function greeting() {
   const h = new Date().getHours()
@@ -48,6 +49,8 @@ export default function Dashboard() {
         <span className="text-[13px] font-semibold uppercase tracking-[0.14em] text-cinza">{today}</span>
         <h1 className="text-4xl font-extrabold tracking-tight">{greeting()}{firstName ? `, ${firstName}` : ''}.</h1>
       </header>
+
+      <Notifications />
 
       {error && <p role="alert" className="rounded-2xl bg-alerta-suave px-4 py-3 font-semibold text-alerta">{error}</p>}
 

@@ -26,7 +26,7 @@ export default function PortalLayout() {
                   {m.label}
                 </NavLink>
               ) : (
-                <span key={m.to} title="Disponível nos próximos módulos" className="inline-flex min-h-11 items-center rounded-full px-3.5 text-sm font-semibold text-[#8F889A]">
+                <span key={m.to} title="Disponível nos próximos módulos" className="hidden md:inline-flex min-h-11 items-center rounded-full px-3.5 text-sm font-semibold text-[#8F889A]">
                   {m.label}
                 </span>
               ),

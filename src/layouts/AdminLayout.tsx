@@ -8,7 +8,6 @@ interface NavItem { to: string; label: string; soon?: boolean; adminOnly?: boole
 const NAV: NavItem[] = [
   { to: '/admin', label: 'Dashboard' },
   { to: '/admin/clientes', label: 'Clientes', prefix: true },
-  { to: '/admin/briefings', label: 'Briefings', soon: true },
   { to: '/admin/contratos', label: 'Contratos', soon: true },
   { to: '/admin/materiais', label: 'Materiais e acessos', soon: true },
   { to: '/admin/estrategias', label: 'Estratégias', soon: true },
@@ -22,7 +21,7 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-screen flex-wrap bg-offwhite">
-      <aside className="flex max-w-full flex-[1_1_248px] flex-col gap-7 bg-preto px-4 py-7 text-offwhite">
+      <aside className="flex max-w-full print:hidden flex-[1_1_248px] flex-col gap-7 bg-preto px-4 py-7 text-offwhite">
         <div className="px-2"><Logo dark /></div>
         <nav aria-label="Menu principal" className="flex flex-col gap-1">
           {items.map((item) =>

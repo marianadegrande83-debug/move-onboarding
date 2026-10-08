@@ -5,9 +5,11 @@ import { useAuth } from '../../lib/auth'
 import { STAGE_LABEL, type Company, type OnboardingStage, type Product, type Profile } from '../../lib/types'
 import { Card, EmptyState, Pill, Spinner } from '../../components/ui'
 import { dateBR, dateTimeBR, inviteMessage, money, phoneBR, whatsappLink } from '../../lib/format'
+import { progress, type Answers } from '../../lib/briefing'
 
 interface Commercial { monthly_fee: number | null; setup_fee: number | null; notes: string | null }
 interface Invite { email: string; accepted_at: string | null; created_at: string }
+interface BriefingRow { answers: Answers; status: 'em_andamento' | 'concluido'; submitted_at: string | null }
 interface AuditRow { id: number; action: string; entity: string; actor_id: string | null; details: Record<string, unknown>; created_at: string }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -33,6 +35,7 @@ export default function ClientDetail() {
   const [invite, setInvite] = useState<Invite | null>(null)
   const [audit, setAudit] = useState<AuditRow[]>([])
   const [copied, setCopied] = useState(false)
+  const [briefing, setBriefing] = useState<BriefingRow | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -45,7 +48,9 @@ export default function ClientDetail() {
       db.from('company_commercial').select('monthly_fee, setup_fee, notes').eq('company_id', id).maybeSingle(),
       db.from('client_invites').select('email, accepted_at, created_at').eq('company_id', id).maybeSingle(),
       db.from('audit_log').select('id, action, entity, actor_id, details, created_at').eq('company_id', id).order('created_at', { ascending: false }).limit(50),
-    ]).then(([c, s, p, t, com, inv, a]) => {
+      db.from('briefings').select('answers, status, submitted_at').eq('company_id', id).maybeSingle(),
+    ]).then(([c, s, p, t, com, inv, a, b]) => {
+      setBriefing((b.data as BriefingRow) ?? null)
       setCompany((c.data as Company) ?? null)
       setServices((s.data ?? []).map((r: { product_id: string }) => r.product_id))
       setProducts((p.data as Product[]) ?? [])
@@ -86,6 +91,11 @@ export default function ClientDetail() {
     if (a.entity === 'company_services') return `${a.action === 'insert' ? 'Serviço incluído' : 'Serviço removido'}: ${productName(d.product_id)}`
     if (a.entity === 'company_commercial') return a.action === 'insert' ? 'Condições comerciais registradas' : 'Condições comerciais atualizadas'
     if (a.entity === 'company_members') return 'Usuário do cliente vinculado'
+    if (a.entity === 'briefings') {
+      const st = (d as { status?: string }).status
+      if (a.action === 'insert') return 'Cliente começou o briefing'
+      return st === 'concluido' ? 'Briefing enviado pelo cliente' : 'Briefing liberado para edição'
+    }
     return `${a.entity} · ${a.action}`
   }
 
@@ -134,6 +144,25 @@ export default function ClientDetail() {
           </div>
         </Card>
       )}
+
+      <Card className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-extrabold">Briefing Estratégico</h2>
+          <p className="text-sm text-cinza">
+            {!briefing
+              ? 'O cliente ainda não começou.'
+              : briefing.status === 'concluido'
+                ? `Enviado em ${dateTimeBR(briefing.submitted_at!)}.`
+                : `Em preenchimento: ${progress({ services: new Set(services), hasTraffic: company.has_traffic, answers: briefing.answers })}% das perguntas obrigatórias.`}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {briefing?.status === 'concluido' ? <Pill tone="ok">Concluído</Pill> : briefing ? <Pill tone="atencao">Em andamento</Pill> : <Pill tone="neutro">Não iniciado</Pill>}
+          {briefing && (
+            <Link to={`/admin/clientes/${company.id}/briefing`} className="inline-flex min-h-11 items-center rounded-full bg-roxo px-5 font-bold text-white hover:bg-[#4A0C75]">Ver respostas</Link>
+          )}
+        </div>
+      </Card>
 
       <div className="flex flex-wrap gap-5">
         <Card className="min-w-0 flex-[1_1_420px]">

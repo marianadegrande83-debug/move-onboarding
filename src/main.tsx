@@ -20,6 +20,8 @@ import NewClient from './pages/admin/NewClient'
 import ClientDetail from './pages/admin/ClientDetail'
 import PortalLayout from './layouts/PortalLayout'
 import PortalHome from './pages/portal/Home'
+import PortalBriefing from './pages/portal/Briefing'
+import ClientBriefing from './pages/admin/ClientBriefing'
 
 function HomeRedirect() {
   const { session, profile, loading } = useAuth()
@@ -47,10 +49,12 @@ function App() {
             <Route path="clientes" element={<Clients />} />
             <Route path="clientes/novo" element={<RequireRole allow={['admin', 'coordenacao']}><NewClient /></RequireRole>} />
             <Route path="clientes/:id" element={<ClientDetail />} />
+            <Route path="clientes/:id/briefing" element={<ClientBriefing />} />
           </Route>
 
           <Route path="/portal" element={<RequireRole allow={['cliente']}><PortalLayout /></RequireRole>}>
             <Route index element={<PortalHome />} />
+            <Route path="briefing/:companyId" element={<PortalBriefing />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

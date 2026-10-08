@@ -17,6 +17,7 @@ await db.exec(fs.readFileSync(new URL('../migrations/0001_auth_permissoes.sql', 
 await db.exec(fs.readFileSync(new URL('../migrations/0003_permissoes_tabelas.sql', import.meta.url), 'utf8'))
 await db.exec(`grant execute on all functions in schema auth to authenticated;`)
 await db.exec(fs.readFileSync(new URL('../migrations/0004_cadastro_clientes.sql', import.meta.url), 'utf8'))
+await db.exec(fs.readFileSync(new URL('../migrations/0005_briefing.sql', import.meta.url), 'utf8'))
 ok('migração executou sem erros')
 
 const newUser = async (email) => (await db.query(`insert into auth.users(email) values($1) returning id`, [email])).rows[0].id
@@ -102,3 +103,41 @@ anaOther === 0 ? ok('cliente não vê serviços de outras empresas') : fail('vaz
 
 const brunaCom = (await as(bruna, `select monthly_fee::text from public.company_commercial where company_id=$1`, [cid])).rows
 brunaCom.length === 1 && brunaCom[0].monthly_fee === '3000.00' ? ok('coordenação vê os dados comerciais') : fail('bruna comercial')
+
+// ---------------- Módulo 4: briefing ----------------
+await as(ana, `insert into public.briefings (company_id, answers, current_step) values ($1, $2, 2)`, [cid, JSON.stringify({ historia: 'rascunho' })])
+await as(ana, `update public.briefings set answers = $2, current_step = 3 where company_id = $1`, [cid, JSON.stringify({ historia: 'versão 2' })])
+const draft = (await db.query(`select answers->>'historia' h, status from public.briefings where company_id=$1`, [cid])).rows[0]
+draft.h === 'versão 2' && draft.status === 'em_andamento' ? ok('cliente salva o rascunho do briefing') : fail('rascunho ' + JSON.stringify(draft))
+
+try { await as(ana, `update public.briefings set status='concluido' where company_id=$1`, [cid]); const st = (await db.query(`select status from public.briefings where company_id=$1`, [cid])).rows[0].status; st === 'em_andamento' ? ok('cliente não marca concluído sem enviar pelo fluxo') : fail('cliente forçou concluído') } catch { ok('cliente não marca concluído sem enviar pelo fluxo') }
+
+try { await as(clienteA, `insert into public.briefings (company_id) values ($1)`, [cid]); fail('outro cliente criou briefing alheio') } catch { ok('outro cliente não mexe no briefing alheio') }
+const otherRead = (await as(clienteA, `select count(*)::int n from public.briefings`)).rows[0].n
+otherRead === 0 ? ok('outro cliente não lê o briefing alheio') : fail('vazamento de briefing')
+const smRead = (await as(sm, `select count(*)::int n from public.briefings where company_id=$1`, [cid])).rows[0].n
+smRead === 1 ? ok('social media atribuída lê o briefing') : fail('sm não lê briefing')
+
+await as(ana, `select public.submit_briefing($1)`, [cid])
+const after = (await db.query(`select b.status, b.submitted_at is not null sent, c.stage from public.briefings b join public.companies c on c.id=b.company_id where b.company_id=$1`, [cid])).rows[0]
+after.status === 'concluido' && after.sent && after.stage === 'contrato' ? ok('envio conclui o briefing e avança para Contrato') : fail('envio ' + JSON.stringify(after))
+
+const notifM = (await as(mariana, `select title from public.notifications`)).rows
+notifM.length === 1 && notifM[0].title === 'Briefing concluído' ? ok('Mariana recebe a notificação') : fail('notificação mariana ' + notifM.length)
+const notifB = (await as(bruna, `select count(*)::int n from public.notifications`)).rows[0].n
+const notifAna = (await as(ana, `select count(*)::int n from public.notifications`)).rows[0].n
+notifB === 0 && notifAna === 0 ? ok('notificação é só de quem recebeu') : fail('notificação vazou')
+
+await as(ana, `update public.briefings set answers='{"historia":"depois do envio"}' where company_id=$1`, [cid])
+const locked = (await db.query(`select answers->>'historia' h from public.briefings where company_id=$1`, [cid])).rows[0].h
+locked === 'versão 2' ? ok('cliente não altera depois de enviar') : fail('alterou após envio')
+
+try { await as(ana, `select public.submit_briefing($1)`, [cid]); fail('enviou duas vezes') } catch { ok('não dá para enviar duas vezes') }
+
+await as(bruna, `update public.briefings set status='em_andamento', submitted_at=null where company_id=$1`, [cid])
+await as(ana, `update public.briefings set answers='{"historia":"ajustado"}' where company_id=$1`, [cid])
+const reopened = (await db.query(`select answers->>'historia' h from public.briefings where company_id=$1`, [cid])).rows[0].h
+reopened === 'ajustado' ? ok('coordenação reabre e o cliente consegue ajustar') : fail('reabrir')
+
+const auditB = (await as(mariana, `select count(*)::int n from public.audit_log where entity='briefings'`)).rows[0].n
+auditB === 3 ? ok('auditoria registra início, envio e reabertura (sem poluir com cada salvamento)') : fail('auditoria briefing ' + auditB)
