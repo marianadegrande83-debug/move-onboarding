@@ -11,11 +11,11 @@ await db.exec(`
   create schema auth;
   create table auth.users (id uuid primary key default gen_random_uuid(), email text);
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
-  grant usage on schema public, auth to anon, authenticated;
+  revoke all on schema public from public; grant usage on schema auth to anon, authenticated;
 `)
 await db.exec(fs.readFileSync(new URL('../migrations/0001_auth_permissoes.sql', import.meta.url), 'utf8'))
-await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated;
-  grant execute on all functions in schema public, auth to authenticated;`)
+await db.exec(fs.readFileSync(new URL('../migrations/0003_permissoes_tabelas.sql', import.meta.url), 'utf8'))
+await db.exec(`grant execute on all functions in schema auth to authenticated;`)
 ok('migração executou sem erros')
 
 const newUser = async (email) => (await db.query(`insert into auth.users(email) values($1) returning id`, [email])).rows[0].id
