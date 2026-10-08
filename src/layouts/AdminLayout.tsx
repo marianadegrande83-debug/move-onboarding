@@ -9,7 +9,7 @@ const NAV: NavItem[] = [
   { to: '/admin', label: 'Dashboard' },
   { to: '/admin/clientes', label: 'Clientes', prefix: true },
   { to: '/admin/contratos', label: 'Contratos', soon: true },
-  { to: '/admin/materiais', label: 'Materiais e acessos', soon: true },
+  { to: '/admin/materiais', label: 'Materiais e acessos' },
   { to: '/admin/estrategias', label: 'Estratégias', soon: true },
   { to: '/admin/transicao', label: 'Transição Trello', soon: true },
   { to: '/admin/equipe', label: 'Equipe e permissões', adminOnly: true },

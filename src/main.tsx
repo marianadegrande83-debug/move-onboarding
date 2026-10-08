@@ -21,6 +21,10 @@ import ClientDetail from './pages/admin/ClientDetail'
 import PortalLayout from './layouts/PortalLayout'
 import PortalHome from './pages/portal/Home'
 import PortalBriefing from './pages/portal/Briefing'
+import PortalMaterials from './pages/portal/Materials'
+import PortalFiles from './pages/portal/Files'
+import AdminMaterials from './pages/admin/Materials'
+import ClientMaterials from './pages/admin/ClientMaterials'
 import ClientBriefing from './pages/admin/ClientBriefing'
 
 function HomeRedirect() {
@@ -50,11 +54,15 @@ function App() {
             <Route path="clientes/novo" element={<RequireRole allow={['admin', 'coordenacao']}><NewClient /></RequireRole>} />
             <Route path="clientes/:id" element={<ClientDetail />} />
             <Route path="clientes/:id/briefing" element={<ClientBriefing />} />
+            <Route path="clientes/:id/materiais" element={<ClientMaterials />} />
+            <Route path="materiais" element={<AdminMaterials />} />
           </Route>
 
           <Route path="/portal" element={<RequireRole allow={['cliente']}><PortalLayout /></RequireRole>}>
             <Route index element={<PortalHome />} />
             <Route path="briefing/:companyId" element={<PortalBriefing />} />
+            <Route path="materiais/:companyId" element={<PortalMaterials />} />
+            <Route path="arquivos" element={<PortalFiles />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

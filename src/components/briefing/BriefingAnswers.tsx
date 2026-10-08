@@ -1,11 +1,5 @@
-import { supabase } from '../../lib/supabase'
+import { openFile } from '../../lib/files'
 import { STEPS, isFilled, visibleFields, type BriefingContext, type FileRef } from '../../lib/briefing'
-
-async function openFile(ref: FileRef) {
-  // Link temporário (5 min): arquivos nunca ficam públicos
-  const { data } = await supabase!.storage.from('client-files').createSignedUrl(ref.path, 300, { download: ref.name })
-  if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener')
-}
 
 function Value({ v }: { v: unknown }) {
   if (!isFilled(v)) return <span className="text-cinza">Não respondido</span>

@@ -2,10 +2,11 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
-import { STAGE_LABEL, type Company, type OnboardingStage, type Product, type Profile } from '../../lib/types'
+import { STAGES, STAGE_LABEL, type Company, type OnboardingStage, type Product, type Profile } from '../../lib/types'
 import { Card, EmptyState, Pill, Spinner } from '../../components/ui'
 import { dateBR, dateTimeBR, inviteMessage, money, phoneBR, whatsappLink } from '../../lib/format'
 import { progress, type Answers } from '../../lib/briefing'
+import { materialProgress, type Material } from '../../lib/materials'
 
 interface Commercial { monthly_fee: number | null; setup_fee: number | null; notes: string | null }
 interface Invite { email: string; accepted_at: string | null; created_at: string }
@@ -36,6 +37,7 @@ export default function ClientDetail() {
   const [audit, setAudit] = useState<AuditRow[]>([])
   const [copied, setCopied] = useState(false)
   const [briefing, setBriefing] = useState<BriefingRow | null>(null)
+  const [materials, setMaterials] = useState<Material[] | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -49,8 +51,10 @@ export default function ClientDetail() {
       db.from('client_invites').select('email, accepted_at, created_at').eq('company_id', id).maybeSingle(),
       db.from('audit_log').select('id, action, entity, actor_id, details, created_at').eq('company_id', id).order('created_at', { ascending: false }).limit(50),
       db.from('briefings').select('answers, status, submitted_at').eq('company_id', id).maybeSingle(),
-    ]).then(([c, s, p, t, com, inv, a, b]) => {
+      db.from('company_materials').select('*').eq('company_id', id),
+    ]).then(([c, s, p, t, com, inv, a, b, m]) => {
       setBriefing((b.data as BriefingRow) ?? null)
+      setMaterials(m.data && m.data.length ? (m.data as Material[]) : null)
       setCompany((c.data as Company) ?? null)
       setServices((s.data ?? []).map((r: { product_id: string }) => r.product_id))
       setProducts((p.data as Product[]) ?? [])
@@ -63,6 +67,15 @@ export default function ClientDetail() {
 
   if (company === undefined) return <Spinner />
   if (company === null) return <EmptyState title="Cliente não encontrado" text="Ele pode ter sido removido ou você não tem acesso a ele." />
+
+  async function changeStage(stage: OnboardingStage) {
+    if (!company || stage === company.stage) return
+    if (!window.confirm(`Mudar a etapa de ${company.name} para "${STAGE_LABEL[stage]}"?`)) return
+    await supabase!.from('companies').update({ stage }).eq('id', company.id)
+    // Recarrega: a mudança pode ter iniciado o prazo da estratégia automaticamente
+    const { data } = await supabase!.from('companies').select('*').eq('id', company.id).maybeSingle()
+    if (data) setCompany(data as Company)
+  }
 
   const productName = (pid?: string | null) => products.find((p) => p.id === pid)?.name ?? pid ?? '—'
   const personName = (pid: string | null) => (pid ? team.find((t) => t.id === pid)?.full_name ?? 'Equipe MOVE' : '—')
@@ -91,6 +104,11 @@ export default function ClientDetail() {
     if (a.entity === 'company_services') return `${a.action === 'insert' ? 'Serviço incluído' : 'Serviço removido'}: ${productName(d.product_id)}`
     if (a.entity === 'company_commercial') return a.action === 'insert' ? 'Condições comerciais registradas' : 'Condições comerciais atualizadas'
     if (a.entity === 'company_members') return 'Usuário do cliente vinculado'
+    if (a.entity === 'company_materials') {
+      const m = d as { title?: string; depois?: string }
+      const lbl = m.depois === 'validado' ? 'validado' : m.depois === 'recebido' ? 'enviado pelo cliente' : 'voltou para pendente'
+      return `${m.title ?? 'Material'}: ${lbl}`
+    }
     if (a.entity === 'briefings') {
       const st = (d as { status?: string }).status
       if (a.action === 'insert') return 'Cliente começou o briefing'
@@ -105,7 +123,20 @@ export default function ClientDetail() {
         <Link to="/admin/clientes" className="text-[13px] font-semibold uppercase tracking-[0.14em] text-cinza hover:text-roxo">← Clientes</Link>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-4xl font-extrabold tracking-tight">{company.name}</h1>
-          <Pill tone={company.stage === 'ativo' ? 'ok' : 'neutro'}>{STAGE_LABEL[company.stage]}</Pill>
+          {isManager ? (
+            <label className="flex items-center gap-2">
+              <span className="sr-only">Etapa do cliente</span>
+              <select
+                value={company.stage}
+                onChange={(e) => changeStage(e.target.value as OnboardingStage)}
+                className="h-10 rounded-full border-2 border-linha bg-white px-3 text-sm font-bold outline-none focus:border-roxo"
+              >
+                {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+            </label>
+          ) : (
+            <Pill tone={company.stage === 'ativo' ? 'ok' : 'neutro'}>{STAGE_LABEL[company.stage]}</Pill>
+          )}
         </div>
         <p className="text-cinza">{productName(company.plan_id) === '—' ? 'Sem plano recorrente' : productName(company.plan_id)}{company.has_traffic ? ' · com tráfego pago' : ''}</p>
       </header>
@@ -163,6 +194,30 @@ export default function ClientDetail() {
           )}
         </div>
       </Card>
+
+      <Card className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-extrabold">Materiais e acessos</h2>
+          <p className="text-sm text-cinza">
+            {materials === null
+              ? 'Checklist ainda não aberto pelo cliente.'
+              : `${materialProgress(materials).validated} de ${materialProgress(materials).required} obrigatórios validados · ${materials.filter((m) => m.status === 'recebido').length} para conferir.`}
+          </p>
+        </div>
+        <Link to={`/admin/clientes/${company.id}/materiais`} className="inline-flex min-h-11 items-center rounded-full bg-roxo px-5 font-bold text-white hover:bg-[#4A0C75]">
+          {isManager ? 'Conferir materiais' : 'Ver materiais'}
+        </Link>
+      </Card>
+
+      {company.strategy_started_at && (
+        <Card className="flex flex-wrap items-center justify-between gap-4 border-2 border-roxo-claro">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-extrabold">Estratégia</h2>
+            <p className="text-sm text-cinza">Prazo iniciado em {dateBR(company.strategy_started_at)} · entrega até <strong className="text-preto">{dateBR(company.strategy_due_at)}</strong></p>
+          </div>
+          {company.strategy_due_at && new Date(company.strategy_due_at) < new Date() && company.stage === 'estrategia' ? <Pill tone="alerta">Prazo vencido</Pill> : <Pill tone="atencao">Em desenvolvimento</Pill>}
+        </Card>
+      )}
 
       <div className="flex flex-wrap gap-5">
         <Card className="min-w-0 flex-[1_1_420px]">

@@ -18,6 +18,7 @@ await db.exec(fs.readFileSync(new URL('../migrations/0003_permissoes_tabelas.sql
 await db.exec(`grant execute on all functions in schema auth to authenticated;`)
 await db.exec(fs.readFileSync(new URL('../migrations/0004_cadastro_clientes.sql', import.meta.url), 'utf8'))
 await db.exec(fs.readFileSync(new URL('../migrations/0005_briefing.sql', import.meta.url), 'utf8'))
+await db.exec(fs.readFileSync(new URL('../migrations/0007_materiais.sql', import.meta.url), 'utf8'))
 ok('migração executou sem erros')
 
 const newUser = async (email) => (await db.query(`insert into auth.users(email) values($1) returning id`, [email])).rows[0].id
@@ -141,3 +142,43 @@ reopened === 'ajustado' ? ok('coordenação reabre e o cliente consegue ajustar'
 
 const auditB = (await as(mariana, `select count(*)::int n from public.audit_log where entity='briefings'`)).rows[0].n
 auditB === 3 ? ok('auditoria registra início, envio e reabertura (sem poluir com cada salvamento)') : fail('auditoria briefing ' + auditB)
+
+// ---------------- Módulos 5 e 6: materiais e acessos ----------------
+await as(ana, `select public.ensure_materials($1)`, [cid])
+await as(ana, `select public.ensure_materials($1)`, [cid]) // idempotente
+const items = (await db.query(`select item_key, required from public.company_materials where company_id=$1 order by sort`, [cid])).rows
+const req = items.filter(i => i.required).map(i => i.item_key)
+items.length === 11 && JSON.stringify(req) === '["logotipo","fotos","instagram","facebook","business_manager","anuncios_meta","google_ads"]'
+  ? ok('checklist gerado conforme Power MOVE + MOVE CONTENT + tráfego') : fail('checklist ' + JSON.stringify(items))
+
+try { await as(clienteA, `select public.ensure_materials($1)`, [cid]); fail('outro cliente gerou checklist alheio') } catch { ok('outro cliente não acessa o checklist alheio') }
+
+await as(ana, `select public.client_update_material($1, 'logotipo', $2::jsonb, 'segue o logo', true)`, [cid, JSON.stringify([{ path: cid + '/materiais/logotipo/a.png', name: 'a.png', size: 10 }])])
+const logo = (await db.query(`select status, client_note, jsonb_array_length(files) n from public.company_materials where company_id=$1 and item_key='logotipo'`, [cid])).rows[0]
+logo.status === 'recebido' && logo.n === 1 && logo.client_note === 'segue o logo' ? ok('cliente envia material e marca como enviado') : fail('envio material ' + JSON.stringify(logo))
+
+await as(ana, `update public.company_materials set status='validado' where company_id=$1`, [cid])
+const notVal = (await db.query(`select count(*)::int n from public.company_materials where company_id=$1 and status='validado'`, [cid])).rows[0].n
+notVal === 0 ? ok('cliente não consegue validar materiais') : fail('cliente validou')
+
+const brunaNotif = (await as(bruna, `select count(*)::int n from public.notifications where title='Material recebido'`)).rows[0].n
+brunaNotif === 1 ? ok('Bruna é avisada quando o cliente envia material') : fail('aviso bruna ' + brunaNotif)
+
+const smMat = (await as(sm, `select count(*)::int n from public.company_materials where company_id=$1`, [cid])).rows[0].n
+smMat === 11 ? ok('social media atribuída vê o checklist') : fail('sm materiais')
+
+// prepara: briefing enviado e etapa Materiais
+await as(ana, `select public.submit_briefing($1)`, [cid])
+await as(bruna, `update public.companies set stage='materiais' where id=$1`, [cid])
+const notYet = (await db.query(`select stage, strategy_started_at from public.companies where id=$1`, [cid])).rows[0]
+notYet.stage === 'materiais' && !notYet.strategy_started_at ? ok('com pendências, o prazo da estratégia não começa') : fail('começou cedo')
+
+await as(bruna, `update public.company_materials set status='validado', validated_by=$2, validated_at=now() where company_id=$1 and required`, [cid, bruna])
+const started = (await db.query(`select stage, strategy_due_at - strategy_started_at as dur from public.companies where id=$1`, [cid])).rows[0]
+started.stage === 'estrategia' && String(started.dur).includes('7') ? ok('todos validados → estratégia começa com prazo de 7 dias') : fail('estratégia ' + JSON.stringify(started))
+
+const mStart = (await as(mariana, `select count(*)::int n from public.notifications where title='Prazo da estratégia iniciado'`)).rows[0].n
+mStart === 1 ? ok('Mariana é avisada do início do prazo') : fail('aviso estratégia')
+
+const auditMat = (await as(mariana, `select count(*)::int n from public.audit_log where entity='company_materials'`)).rows[0].n
+auditMat >= 7 ? ok('auditoria registra cada mudança de situação dos materiais') : fail('auditoria materiais ' + auditMat)

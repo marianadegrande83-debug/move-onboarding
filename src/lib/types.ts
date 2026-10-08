@@ -29,6 +29,8 @@ export interface Company {
   traffic_id: string | null
   start_date?: string | null
   plan_id?: string | null
+  strategy_started_at?: string | null
+  strategy_due_at?: string | null
   created_at?: string
   updated_at: string
 }
