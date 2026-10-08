@@ -9,6 +9,7 @@ import { RequireRole } from './components/RequireRole'
 import { Spinner } from './components/ui'
 import Login from './pages/Login'
 import AuthCallback from './pages/AuthCallback'
+import AuthConfirm from './pages/AuthConfirm'
 import AccessDenied from './pages/AccessDenied'
 import SetupNotice from './pages/SetupNotice'
 import AdminLayout from './layouts/AdminLayout'
@@ -37,6 +38,7 @@ function App() {
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/auth/confirm" element={<AuthConfirm />} />
           <Route path="/acesso-negado" element={<AccessDenied />} />
 
           <Route path="/admin" element={<RequireRole allow={TEAM_ROLES}><AdminLayout /></RequireRole>}>

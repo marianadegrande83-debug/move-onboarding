@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { Logo } from '../components/ui'
@@ -11,8 +11,25 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [message, setMessage] = useState('')
+  const [code, setCode] = useState('')
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [verifying, setVerifying] = useState(false)
+  const navigate = useNavigate()
 
   if (!loading && session && profile) return <Navigate to="/" replace />
+
+  async function verifyCode(e: FormEvent) {
+    e.preventDefault()
+    setCodeError(null)
+    setVerifying(true)
+    const { error } = await supabase!.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code, type: 'email' })
+    setVerifying(false)
+    if (error) {
+      setCodeError('Código inválido ou expirado. Confira os números ou peça outro link.')
+      return
+    }
+    navigate('/', { replace: true })
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -65,8 +82,26 @@ export default function Login() {
               <h2 className="text-3xl font-extrabold tracking-tight">Confira seu e-mail</h2>
               <p className="leading-relaxed text-cinza">
                 Se <strong className="text-preto">{email.trim().toLowerCase()}</strong> estiver cadastrado na MOVE, você vai receber um link de acesso em instantes.
-                Abra o link <strong className="text-preto">neste mesmo navegador</strong>.
+                O link funciona em qualquer aparelho, inclusive no celular.
               </p>
+              <form onSubmit={verifyCode} className="flex flex-col gap-2 rounded-2xl border border-linha bg-white p-4">
+                <label htmlFor="codigo" className="text-sm font-bold">Ou digite o código que veio no e-mail</label>
+                <div className="flex gap-2">
+                  <input
+                    id="codigo"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="000000"
+                    className="h-12 min-w-0 flex-1 rounded-xl border-[1.5px] border-[#D4D4D4] px-3 text-lg tracking-[0.3em] outline-none focus:border-roxo"
+                  />
+                  <button type="submit" disabled={code.length < 6 || verifying} className="h-12 rounded-full bg-roxo px-5 font-bold text-white disabled:opacity-50">
+                    {verifying ? 'Entrando…' : 'Entrar'}
+                  </button>
+                </div>
+                {codeError && <p className="text-sm font-semibold text-alerta">{codeError}</p>}
+              </form>
               <p className="text-sm text-cinza">Não chegou? Veja a caixa de spam ou peça outro link.</p>
               <button type="button" onClick={() => setStatus('idle')} className="min-h-11 self-start font-bold text-roxo underline-offset-4 hover:underline">
                 Pedir outro link

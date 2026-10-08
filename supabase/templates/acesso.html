@@ -1,0 +1,17 @@
+<!-- Template de e-mail do Supabase (Authentication → Emails → Templates).
+     Use este mesmo conteúdo em "Magic Link" e em "Confirm signup".
+     Assunto sugerido: Seu acesso ao portal MOVE -->
+<div style="background:#F1F1F1;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;color:#030303">
+  <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:20px;padding:32px">
+    <p style="margin:0 0 4px;font-weight:800;letter-spacing:2px;color:#5B108F">MOVE</p>
+    <h1 style="margin:0 0 16px;font-size:24px">Seu acesso ao portal</h1>
+    <p style="margin:0 0 24px;line-height:1.5;color:#5E5A66">Clique no botão abaixo para entrar. Ele funciona em qualquer aparelho e vale por pouco tempo.</p>
+    <p style="margin:0 0 28px">
+      <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email"
+         style="display:inline-block;background:#5B108F;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 28px;border-radius:999px">Entrar no portal</a>
+    </p>
+    <p style="margin:0 0 8px;color:#5E5A66">Ou digite este código no site:</p>
+    <p style="margin:0 0 24px;font-size:28px;font-weight:800;letter-spacing:6px">{{ .Token }}</p>
+    <p style="margin:0;font-size:12px;color:#8F889A">Se você não pediu este acesso, ignore este e-mail.</p>
+  </div>
+</div>
